@@ -445,7 +445,7 @@ function wChange(sorted,days){
   if(sorted.length<2)return null;
   const last=sorted[sorted.length-1],cut=addDays(last.date,-days);
   let ref=null;for(const r of sorted){if(r.date<=cut)ref=r}
-  if(!ref)return null;
+  if(!ref||ref.date<addDays(cut,-Math.max(3,Math.round(days/2))))return null;
   return last.lb-ref.lb;
 }
 function fchg(d){if(d==null)return"-";const v=r1(lb2u(Math.abs(d)));return (d>0?"+":d<0?"-":"")+v+" "+S.settings.unit}
@@ -516,7 +516,8 @@ function importWeightCsv(text){
     const raw=parseFloat(rawStr);if(isNaN(raw)||raw<=0)continue;
     const dv=(r[di]||"").trim(),dm=dv.match(/^(\d{4})-(\d{2})-(\d{2})$/),d=dm?new Date(+dm[1],+dm[2]-1,+dm[3]):new Date(dv);if(isNaN(d))continue;
     const us=ui>=0?(r[ui]||"").toLowerCase():"";
-    let unit=us.includes("kg")?"kg":/lb/.test(us)?"lb":hdrUnit;
+    const vs=(r[wi]||"").toLowerCase();
+    let unit=us.includes("kg")?"kg":/lb/.test(us)?"lb":/kg/.test(vs)?"kg":/lb/.test(vs)?"lb":hdrUnit;
     if(!unit){if(asked===null)asked=confirm("The file does not say the unit. Are the weights in kg?\n\nOK = kg, Cancel = lb")?"kg":"lb";unit=asked}
     const lb=unit==="kg"?raw/KG:raw;if(lb<40||lb>800)continue;
     const ds=ymd(d),rec={date:ds,lb:Math.round(lb*100)/100},bf=bi>=0?parseFloat((r[bi]||"").replace(/[^0-9.]/g,"")):NaN;
