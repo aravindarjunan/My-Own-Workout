@@ -371,8 +371,7 @@ function daySheet(ds){
 }
 
 /* ---------- progress ---------- */
-function viewProg(m){
-  setHeader("Progress",false);
+function viewProgEx(m,bar){
   const ids=[...new Set(S.logs.map(l=>l.exId))];
   if(!ids.length){m.innerHTML='<div class="card">Log a workout and your weight progress will show up here.</div>';return}
   const name=id=>(exById(id)||S.logs.find(l=>l.exId===id)||{name:id}).name;
@@ -385,8 +384,43 @@ function viewProg(m){
   h+='<div class="card" style="margin-top:12px"><div class="row"><div class="sp"><div class="mut sm">Best weight</div><b style="font-size:17px">'+(pr?fw(pr):"Bodyweight")+'</b></div><div class="sp"><div class="mut sm">Est. 1-rep max</div><b style="font-size:17px">'+(pe&&pr?fw(pe):"-")+'</b></div></div></div>';
   h+='<div class="card"><div class="mut sm" style="margin-bottom:4px">Top set weight per session ('+S.settings.unit+')</div>'+chart(pts)+'</div>';
   h+='<div class="card"><table><tr><th>Date</th><th>Sets (weight × reps)</th></tr>'+hs.slice().reverse().map(l=>'<tr><td>'+fmtDate(l.date)+'</td><td>'+l.sets.map(s=>(ex&&ex.bw&&!s.w?"BW":r1(lb2u(s.w)))+"×"+s.reps).join(", ")+'</td></tr>').join("")+'</table></div>';
-  m.innerHTML=h;
+  m.innerHTML=bar+h;bindPM(m);
   $("#pe").onchange=e=>{progEx=e.target.value;viewProg(m)};
+}
+let progMode="date",progShow=10;
+function pmBar(){return '<div style="margin-bottom:12px"><span class="chip'+(progMode==="date"?" on":"")+'" data-pm="date">By date</span><span class="chip'+(progMode==="ex"?" on":"")+'" data-pm="ex">By exercise</span></div>'}
+function bindPM(m){m.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{progMode=b.dataset.pm;viewProg(m)})}
+function runs(sets,ex){
+  const out=[];
+  for(const s of sets){const l=out[out.length-1];if(l&&l.w===s.w&&l.reps===s.reps)l.n++;else out.push({w:s.w,reps:s.reps,n:1})}
+  return out.map(r=>{
+    const wt=(ex&&ex.bw&&!r.w)?"bodyweight":fw(r.w),unit=ex&&ex.timed?" sec":" reps";
+    return '<div style="margin:2px 0"><b>'+r.n+(r.n===1?" set":" sets")+' × '+r.reps+unit+'</b> <span class="mut">at</span> '+wt+'</div>'}).join("");
+}
+function viewProgDate(m){
+  const dates=[...new Set(S.logs.map(l=>l.date))].sort().reverse();
+  const lastLog={};S.logs.forEach(l=>{if(!lastLog[l.exId]||l.date>lastLog[l.exId])lastLog[l.exId]=l.date});
+  let h=pmBar();
+  for(const d of dates.slice(0,progShow)){
+    const day=S.logs.filter(l=>l.date===d).sort((a,b)=>(a.ts||0)-(b.ts||0));
+    const cats=[...new Set(day.map(l=>(exById(l.exId)||{}).cat).filter(Boolean))];
+    h+='<div class="card"><div class="row" style="margin-bottom:6px"><b style="font-size:17px" class="sp">'+(d===today()?"Today · ":"")+fmtDate(d)+'</b><span class="mut sm">'+day.length+' exercise'+(day.length>1?"s":"")+'</span></div>'+(cats.length?'<div class="mut sm" style="margin-bottom:8px">'+esc(cats.join(" + "))+'</div>':'');
+    day.forEach((l,i)=>{
+      const ex=exById(l.exId),name=ex?ex.name:(l.name||l.exId),eff=ex||{bw:!!l.bw};
+      let nx="";
+      if(ex&&lastLog[l.exId]===d){const sg=suggest(ex);if(sg.w>0)nx='<div class="sm" style="margin-top:4px;color:var(--accd)">Next time: try '+fw(sg.w)+' × '+sg.reps+(ex.timed?" sec":" reps")+'</div>'}
+      h+='<div style="padding:8px 0;'+(i?'border-top:1px solid var(--line)':'')+'"><div style="font-weight:600;margin-bottom:2px">'+esc(name)+'</div>'+runs(l.sets,eff)+nx+'</div>';
+    });
+    h+='</div>';
+  }
+  if(dates.length>progShow)h+='<button class="btn sec full" id="pmore">Show older workouts</button>';
+  m.innerHTML=h;bindPM(m);
+  const mb=$("#pmore");if(mb)mb.onclick=()=>{progShow+=10;viewProgDate(m)};
+}
+function viewProg(m){
+  setHeader("Progress",false);
+  if(!S.logs.length){m.innerHTML='<div class="card">Log a workout and tap Save workout. Your day-by-day log and weight progress will show up here.</div>';return}
+  if(progMode==="ex")viewProgEx(m,pmBar());else viewProgDate(m);
 }
 function chart(pts){
   if(pts.length<2)return'<div class="mut">Log at least 2 sessions to see a trend.</div>';
