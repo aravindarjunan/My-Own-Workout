@@ -42,9 +42,10 @@ h2{font-size:15px;color:var(--mut);margin:20px 0 8px;font-weight:600;text-transf
 .exrow{display:flex;gap:12px;align-items:center;color:var(--ink);text-align:left;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;font-size:16px}
 .exrow b{display:block;font-size:16px}
 .tag{display:inline-block;font-size:12px;background:var(--soft);color:var(--accd);border-radius:6px;padding:2px 6px;margin-top:4px}
-.setrow{display:grid;grid-template-columns:28px 1fr 1fr 44px;gap:8px;align-items:start;margin-bottom:8px}
+.setrow{display:grid;grid-template-columns:24px 1fr 1fr 1fr 44px;gap:6px;align-items:start;margin-bottom:8px}
+.kgbox{height:46px;border-radius:10px;border:1px dashed var(--line);background:var(--soft);color:var(--accd);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
 .setrow .n{padding-top:12px;color:var(--mut);font-weight:600;text-align:center}
-.setrow input{width:100%;font-size:18px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.setrow input{width:100%;font-size:17px;padding:10px 6px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .setrow .cv{font-size:12px;color:var(--mut);margin:2px 0 0 4px;min-height:15px}
 .setrow .ck{height:46px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:20px;color:var(--ink)}
 .setrow .ck.on{background:var(--good);border-color:var(--good);color:#fff}
@@ -101,17 +102,18 @@ function defaultState(){
   return{ver:1,
     settings:{unit:"lb",rest:90,start:today(),
       plan:{0:[],1:["Chest","Triceps"],2:["Back","Biceps"],3:["Legs"],4:["Shoulders","Core"],5:[],6:[]}},
-    exercises:[],logs:[],excused:{}};
+    exercises:[],logs:[],excused:{},weights:[]};
 }
 let S;
 try{S=JSON.parse(localStorage.getItem(K))||defaultState()}catch(e){S=defaultState()}
+S.weights=S.weights||[];S.settings.unit="lb";
 function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast("Could not save (storage full?)")}}
 const exById=id=>S.exercises.find(e=>e.id===id);
 
 const lb2u=lb=>S.settings.unit==="kg"?lb*KG:lb;
 const u2lb=v=>S.settings.unit==="kg"?v/KG:v;
 const r1=n=>Math.round(n*10)/10;
-const fw=lb=>{const u=S.settings.unit;return r1(u==="kg"?lb*KG:lb)+" "+u};
+const fw=lb=>r1(lb)+" lb ("+r1(lb*KG)+" kg)";
 const fboth=lb=>r1(lb)+" lb ("+r1(lb*KG)+" kg)";
 const epley=(w,r)=>r<=1?w:w*(1+r/30);
 
@@ -162,9 +164,9 @@ function nav(v,push=true){view=v;if(push)history.pushState({v,tab},"");render()}
 window.addEventListener("popstate",e=>{if(e.state){view=e.state.v;tab=e.state.tab}else{view={t:"home"};tab="home"}render()});
 history.replaceState({v:view,tab},"");
 function setTab(t){tab=t;view={t:t==="home"?"home":t};history.pushState({v:view,tab},"");render()}
-const ICON={home:'<path d="M3 11l9-8 9 8M5 10v10h14V10"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',prog:'<path d="M3 20h18M5 16l4-5 4 3 6-8"/>',more:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'};
+const ICON={home:'<path d="M3 11l9-8 9 8M5 10v10h14V10"/>',weight:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9a4 4 0 018 0M12 9l2-2"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',prog:'<path d="M3 20h18M5 16l4-5 4 3 6-8"/>',more:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'};
 function renderTabs(){
-  const L=[["home","Workout"],["cal","Calendar"],["prog","Progress"],["more","Settings"]];
+  const L=[["home","Workout"],["cal","Calendar"],["prog","Progress"],["weight","Weight"],["more","Settings"]];
   $("#tabs").innerHTML=L.map(([k,n])=>'<button class="'+(tab===k?"on":"")+'" data-tab="'+k+'"><svg viewBox="0 0 24 24">'+ICON[k]+'</svg>'+n+'</button>').join("");
   $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
@@ -179,6 +181,7 @@ function render(){
     if(view.t==="cat")viewCat(m);else if(view.t==="ex")viewEx(m);else viewHome(m);
   }else if(tab==="cal")viewCal(m);
   else if(tab==="prog")viewProg(m);
+  else if(tab==="weight")viewWeight(m);
   else viewSettings(m);
   hydrateDemos();
 }
@@ -226,7 +229,7 @@ function viewEx(m){
   let h='<div class="card">'+demoBox(ex)+'<div class="row" style="margin-top:8px"><span class="mut sm sp">'+esc(ex.eq||"")+(ex.muscles&&ex.muscles.length?" · "+esc(ex.muscles.join(", ")):"")+'</span><label class="btn sec sm" style="margin:0">Own GIF<input type="file" id="gifin" accept="image/gif,image/*,video/*" hidden></label></div></div>';
   if(sg.msg)h+='<div class="sug"><b>Next target</b><br>'+sg.msg+'</div>';
   h+='<div class="row" style="margin-bottom:8px"><div class="sp"><div class="lbl">Date</div><input type="date" id="dt" value="'+draft.date+'" max="'+today()+'"></div></div>';
-  h+='<div class="row mut sm" style="margin:0 0 6px 36px"><span class="sp">Weight ('+u+')</span><span class="sp">'+rl+'</span><span style="width:44px"></span></div><div id="sets"></div>';
+  h+='<div class="setrow" style="margin-bottom:2px"><div></div><div class="lbl">Weight (lb)</div><div class="lbl">kg (auto)</div><div class="lbl">'+rl+'</div><div></div></div><div id="sets"></div>';
   h+='<div class="row" style="margin:6px 0 14px"><button class="btn sec sm" id="addset">+ Add set</button><button class="btn sec sm" id="rmset">- Remove set</button><span class="sp"></span></div>';
   h+='<button class="btn full" id="savew">'+(draft.editing?"Update workout":"Save workout")+'</button>';
   const hs=logsFor(ex.id).slice().reverse().slice(0,6);
@@ -246,20 +249,17 @@ function viewEx(m){
     if(!confirm("Remove "+ex.name+" from your list? Logged history stays in Progress and Calendar."))return;
     S.exercises=S.exercises.filter(x=>x.id!==ex.id);save();history.back()};
 }
+function kgTxt(lb){return lb?r1(lb*KG):"-"}
 function drawSets(ex){
-  const u=S.settings.unit,box=$("#sets");
-  box.innerHTML=draft.sets.map((s,i)=>{
-    const wv=s.w?r1(lb2u(s.w)):"";
-    return '<div class="setrow" data-i="'+i+'"><div class="n">'+(i+1)+'</div><div><input type="number" inputmode="decimal" step="any" min="0" class="w" placeholder="'+(ex.bw?"BW":"0")+'" value="'+wv+'"><div class="cv">'+convTxt(s.w)+'</div></div><div><input type="number" inputmode="numeric" min="0" class="r" value="'+(s.reps||"")+'"></div><button class="ck'+(s.done?" on":"")+'" aria-label="Set done">&#10003;</button></div>';
-  }).join("");
+  const box=$("#sets");
+  box.innerHTML=draft.sets.map((s,i)=>'<div class="setrow" data-i="'+i+'"><div class="n">'+(i+1)+'</div><div><input type="number" inputmode="decimal" step="any" min="0" class="w" placeholder="'+(ex.bw?"BW":"0")+'" value="'+(s.w?r1(s.w):"")+'"></div><div class="kgbox">'+kgTxt(s.w)+'</div><div><input type="number" inputmode="numeric" min="0" class="r" value="'+(s.reps||"")+'"></div><button class="ck'+(s.done?" on":"")+'" aria-label="Set done">&#10003;</button></div>').join("");
   box.querySelectorAll(".setrow").forEach(r=>{
     const i=+r.dataset.i,s=draft.sets[i];
-    r.querySelector(".w").oninput=e=>{const v=parseFloat(e.target.value);s.w=isNaN(v)?0:u2lb(v);r.querySelector(".cv").textContent=convTxt(s.w)};
+    r.querySelector(".w").oninput=e=>{const v=parseFloat(e.target.value);s.w=isNaN(v)?0:v;r.querySelector(".kgbox").textContent=kgTxt(s.w)};
     r.querySelector(".r").oninput=e=>{s.reps=parseInt(e.target.value)||0};
     r.querySelector(".ck").onclick=e=>{s.done=!s.done;e.currentTarget.classList.toggle("on",s.done);if(s.done&&S.settings.rest>0)startRest(S.settings.rest)}
   });
 }
-function convTxt(lb){if(!lb)return"";return S.settings.unit==="kg"?"= "+r1(lb)+" lb":"= "+r1(lb*KG)+" kg"}
 function saveWorkout(ex){
   const sets=draft.sets.filter(s=>s.reps>0).map(s=>({w:Math.round(s.w*100)/100,reps:s.reps}));
   if(!sets.length){toast("Enter reps for at least one set");return}
@@ -382,7 +382,7 @@ function viewProg(m){
   const pts=hs.map(l=>({d:l.date,w:Math.max(...l.sets.map(s=>s.w)),e:Math.max(...l.sets.map(s=>epley(s.w,s.reps)))}));
   const pr=Math.max(...pts.map(p=>p.w)),pe=Math.max(...pts.map(p=>p.e));
   let h='<select id="pe">'+ids.map(i=>'<option value="'+esc(i)+'"'+(i===progEx?" selected":"")+'>'+esc(name(i))+'</option>').join("")+'</select>';
-  h+='<div class="card" style="margin-top:12px"><div class="row"><div class="sp"><div class="mut sm">Best weight</div><b style="font-size:20px">'+(pr?fw(pr):"Bodyweight")+'</b>'+(pr?'<div class="mut sm">'+fboth(pr)+'</div>':"")+'</div><div class="sp"><div class="mut sm">Est. 1-rep max</div><b style="font-size:20px">'+(pe&&pr?fw(pe):"-")+'</b></div></div></div>';
+  h+='<div class="card" style="margin-top:12px"><div class="row"><div class="sp"><div class="mut sm">Best weight</div><b style="font-size:17px">'+(pr?fw(pr):"Bodyweight")+'</b></div><div class="sp"><div class="mut sm">Est. 1-rep max</div><b style="font-size:17px">'+(pe&&pr?fw(pe):"-")+'</b></div></div></div>';
   h+='<div class="card"><div class="mut sm" style="margin-bottom:4px">Top set weight per session ('+S.settings.unit+')</div>'+chart(pts)+'</div>';
   h+='<div class="card"><table><tr><th>Date</th><th>Sets (weight × reps)</th></tr>'+hs.slice().reverse().map(l=>'<tr><td>'+fmtDate(l.date)+'</td><td>'+l.sets.map(s=>(ex&&ex.bw&&!s.w?"BW":r1(lb2u(s.w)))+"×"+s.reps).join(", ")+'</td></tr>').join("")+'</table></div>';
   m.innerHTML=h;
@@ -403,11 +403,100 @@ function chart(pts){
   return s;
 }
 
+
+/* ---------- body weight ---------- */
+function wSorted(){return S.weights.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0)}
+function addDays(ds,n){const d=parse(ds);d.setDate(d.getDate()+n);return ymd(d)}
+function wChange(sorted,days){
+  if(sorted.length<2)return null;
+  const last=sorted[sorted.length-1],cut=addDays(last.date,-days);
+  let ref=null;for(const r of sorted){if(r.date<=cut)ref=r}
+  if(!ref)return null;
+  return last.lb-ref.lb;
+}
+function fchg(d){if(d==null)return"-";const v=r1(lb2u(Math.abs(d)));return (d>0?"+":d<0?"-":"")+v+" "+S.settings.unit}
+function viewWeight(m){
+  setHeader("Body weight",false);
+  const sorted=wSorted(),u=S.settings.unit,last=sorted[sorted.length-1];
+  let h='';
+  if(last){
+    const min=sorted.reduce((a,r)=>r.lb<a.lb?r:a,sorted[0]);
+    h+='<div class="card"><div class="mut sm">Latest ('+fmtDate(last.date)+')</div><div style="font-size:24px;font-weight:700">'+fw(last.lb)+'</div>'+(last.bf?'<div class="mut sm">Body fat '+last.bf+'%</div>':'')+'<div class="row" style="margin-top:10px"><div class="sp"><div class="mut sm">7 days</div><b>'+fchg(wChange(sorted,7))+'</b></div><div class="sp"><div class="mut sm">30 days</div><b>'+fchg(wChange(sorted,30))+'</b></div><div class="sp"><div class="mut sm">Lowest</div><b>'+fw(min.lb)+'</b></div></div></div>';
+  }else h+='<div class="card mut">No weigh-ins yet. Add your first reading below, or import a file.</div>';
+  h+='<div class="card"><b>Add a reading</b><div class="row" style="margin-top:8px"><div class="sp"><div class="lbl">Date</div><input type="date" id="wd" value="'+today()+'" max="'+today()+'"></div></div><div class="row" style="margin-top:8px"><div class="sp"><div class="lbl">Weight ('+u+')</div><input type="number" inputmode="decimal" step="any" min="0" id="ww" class="plain" placeholder="'+(u==="kg"?"e.g. 80.5":"e.g. 178.4")+'"><div class="cv" id="wcv" style="font-size:12px;color:var(--mut);min-height:15px;margin:2px 0 0 4px"></div></div><div class="sp"><div class="lbl">Body fat % (optional)</div><input type="number" inputmode="decimal" step="any" min="0" max="80" id="wb" class="plain"></div></div><button class="btn full" id="wsave" style="margin-top:8px">Save reading</button><div class="mut sm" id="werr" style="color:var(--bad);margin-top:6px"></div></div>';
+  h+='<div class="card"><div class="mut sm" style="margin-bottom:4px">Weight over time ('+u+')</div>'+chart(sorted.map(r=>({d:r.date,w:r.lb})))+'</div>';
+  if(sorted.length){
+    h+='<h2>Readings</h2><div class="card"><table>'+sorted.slice().reverse().slice(0,40).map(r=>'<tr><td>'+fmtDate(r.date)+'</td><td>'+fw(r.lb)+(r.bf?' · '+r.bf+'%':'')+'</td><td style="text-align:right"><button class="btn sec sm" data-wd="'+r.date+'">Delete</button></td></tr>').join("")+'</table>'+(sorted.length>40?'<div class="mut sm" style="margin-top:6px">Showing the latest 40 of '+sorted.length+'.</div>':'')+'</div>';
+  }
+  h+='<div class="card"><b>Import from a file</b><div class="mut sm" style="margin:4px 0 10px">Use a CSV file with a date column and a weight column (for example an export from your scale app). Readings on a date that already exists are replaced.</div><label class="btn sec sm" style="display:inline-block;margin:0">Choose CSV file<input type="file" id="wcsv" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" hidden></label></div>';
+  m.innerHTML=h;
+  const wi=$("#ww");
+  wi.oninput=()=>{const v=parseFloat(wi.value);$("#wcv").textContent=isNaN(v)?"":(u==="kg"?"= "+r1(v/KG)+" lb":"= "+r1(v*KG)+" kg")};
+  $("#wsave").onclick=()=>{
+    const v=parseFloat(wi.value),d=$("#wd").value||today(),bf=parseFloat($("#wb").value);
+    if(isNaN(v)||v<=0){$("#werr").textContent="Enter your weight first";return}
+    const lb=u2lb(v);
+    if(lb<40||lb>800){$("#werr").textContent="That weight looks wrong ("+r1(v)+" "+u+"). Check the unit in Settings.";return}
+    S.weights=S.weights.filter(r=>r.date!==d);
+    const rec={date:d,lb:Math.round(lb*100)/100};if(!isNaN(bf)&&bf>0)rec.bf=r1(bf);
+    S.weights.push(rec);save();toast("Weight saved");viewWeight(m);
+  };
+  m.querySelectorAll("[data-wd]").forEach(b=>b.onclick=()=>{if(confirm("Delete the reading for "+fmtDate(b.dataset.wd)+"?")){S.weights=S.weights.filter(r=>r.date!==b.dataset.wd);save();viewWeight(m)}});
+  $("#wcsv").onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{const n=importWeightCsv(await f.text());toast(n?n+" readings imported":"No readings found in that file");viewWeight(m)}
+    catch(x){toast("Could not read that file")}
+  };
+}
+function parseCsv(t){
+  t=t.replace(/^﻿/,"");const rows=[];let row=[],c="",q=false;
+  const delim=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++}else q=false}else c+=ch}
+    else if(ch==='"')q=true;
+    else if(ch===delim){row.push(c);c=""}
+    else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&t[i+1]==="\n")i++;row.push(c);c="";if(row.some(x=>x.trim()))rows.push(row);row=[]}
+    else c+=ch}
+  row.push(c);if(row.some(x=>x.trim()))rows.push(row);return rows;
+}
+function importWeightCsv(text){
+  let rows=parseCsv(text);if(rows.length<2)return 0;
+  const first=text.split("\n")[0],delimIsSemi=(first.match(/;/g)||[]).length>(first.match(/,/g)||[]).length;
+  const base=x=>x.trim().toLowerCase().split(".").pop();
+  let hi=-1;
+  for(let i=0;i<Math.min(rows.length,6);i++){const h=rows[i].map(base);if(h.some(x=>/date|time|day/.test(x))&&h.some(x=>/weight|^kg$|^lbs?$/.test(x))){hi=i;break}}
+  if(hi<0){toast("Could not find date and weight columns");return 0}
+  const hd=rows[hi].map(base),full=rows[hi].map(x=>x.trim().toLowerCase());
+  const pick=(...res)=>{for(const re of res){const i=hd.findIndex(x=>re.test(x));if(i>=0)return i}return -1};
+  const di=pick(/^start_time$/,/^create_time$/,/^(date|timestamp|datetime|date_time|time)$/,/date/,/(?<!offset|zone)time(?!.*(offset|zone))/);
+  let wi=pick(/^weight$/,/^(weight|body_weight|weight_kg|weight_lb|weight_lbs)$/);
+  if(wi<0)wi=hd.findIndex(x=>/weight/.test(x)&&!/target|goal|bmi|unit|height|free|lean/.test(x));
+  if(wi<0)wi=pick(/^(kg|lbs?)$/);
+  const bi=hd.findIndex(x=>/fat/.test(x)&&!/free|mass|kg|lb|visceral|subcut/.test(x));
+  const ui=pick(/^(unit|weight_unit)$/);
+  if(di<0||wi<0){toast("Could not find date and weight columns");return 0}
+  const hdrUnit=/kg/.test(hd[wi])?"kg":/lb/.test(hd[wi])?"lb":null;
+  let asked=null,n=0;
+  for(const r of rows.slice(hi+1)){
+    const rawStr=(r[wi]||"").replace(delimIsSemi?/,/g:/$^/,".").replace(/[^0-9.\-]/g,"");
+    const raw=parseFloat(rawStr);if(isNaN(raw)||raw<=0)continue;
+    const dv=(r[di]||"").trim(),dm=dv.match(/^(\d{4})-(\d{2})-(\d{2})$/),d=dm?new Date(+dm[1],+dm[2]-1,+dm[3]):new Date(dv);if(isNaN(d))continue;
+    const us=ui>=0?(r[ui]||"").toLowerCase():"";
+    let unit=us.includes("kg")?"kg":/lb/.test(us)?"lb":hdrUnit;
+    if(!unit){if(asked===null)asked=confirm("The file does not say the unit. Are the weights in kg?\n\nOK = kg, Cancel = lb")?"kg":"lb";unit=asked}
+    const lb=unit==="kg"?raw/KG:raw;if(lb<40||lb>800)continue;
+    const ds=ymd(d),rec={date:ds,lb:Math.round(lb*100)/100},bf=bi>=0?parseFloat((r[bi]||"").replace(/[^0-9.]/g,"")):NaN;
+    if(!isNaN(bf)&&bf>0&&bf<80)rec.bf=r1(bf);
+    S.weights=S.weights.filter(x=>x.date!==ds);S.weights.push(rec);n++;
+  }
+  save();return n;
+}
+
 /* ---------- settings ---------- */
 function viewSettings(m){
   setHeader("Settings",false);
   const st=S.settings;
-  let h='<div class="card"><b>Weight unit</b><div class="mut sm" style="margin-bottom:8px">Both units are always shown. This sets what you type in.</div><span class="chip'+(st.unit==="lb"?" on":"")+'" data-u="lb">lb</span><span class="chip'+(st.unit==="kg"?" on":"")+'" data-u="kg">kg</span></div>';
+  let h='<div class="card"><b>Weights</b><div class="mut sm" style="margin-top:4px">You always type pounds (lb). The kilogram value (kg) is calculated and shown next to it everywhere.</div></div>';
   h+='<div class="card"><b>Weekly plan</b><div class="mut sm" style="margin-bottom:8px">Planned days with no workout show as skipped on the calendar. Tap a group to add or remove it. No groups = rest day.</div>';
   for(let d=1;d<=7;d++){const k=d%7;
     h+='<div style="margin-bottom:6px"><div class="lbl">'+["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][k]+'</div>'+CATS.map(c=>'<span class="chip'+(st.plan[k].includes(c)?" on":"")+'" data-p="'+k+'|'+c+'">'+c+'</span>').join("")+'</div>'}
@@ -415,8 +504,7 @@ function viewSettings(m){
   h+='<div class="card"><div class="lbl">Rest timer (seconds, 0 = off)</div><input type="number" class="plain" id="rest" value="'+st.rest+'"><div class="lbl" style="margin-top:10px">Skipped days are counted from</div><input type="date" id="start" value="'+st.start+'"></div>';
   h+='<div class="card"><b>Backup</b><div class="mut sm" style="margin:4px 0 10px">Your data lives only on this phone. Save a backup file now and then (for example to your NAS). Your own uploaded GIFs are not included in the file.</div><div class="row"><button class="btn sm sp" id="exp">Export backup</button><label class="btn sec sm sp" style="text-align:center;margin:0">Import<input type="file" id="imp" accept="application/json" hidden></label></div></div>';
   m.innerHTML=h;
-  m.querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>{st.unit=b.dataset.u;save();viewSettings(m)});
-  m.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{const[k,c]=b.dataset.p.split("|"),a=st.plan[k],i=a.indexOf(c);i<0?a.push(c):a.splice(i,1);save();viewSettings(m)});
+    m.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{const[k,c]=b.dataset.p.split("|"),a=st.plan[k],i=a.indexOf(c);i<0?a.push(c):a.splice(i,1);save();viewSettings(m)});
   $("#rest").onchange=e=>{st.rest=Math.max(0,parseInt(e.target.value)||0);save()};
   $("#start").onchange=e=>{if(e.target.value){st.start=e.target.value;save()}};
   $("#exp").onclick=()=>{
@@ -426,7 +514,7 @@ function viewSettings(m){
     const f=e.target.files[0];if(!f)return;
     try{const d=JSON.parse(await f.text());if(!d.settings||!Array.isArray(d.logs)||!Array.isArray(d.exercises))throw 0;
       if(!confirm("Replace everything on this phone with the backup file?"))return;
-      S=d;save();toast("Backup restored");viewSettings(m)}catch(x){toast("That file is not a My Own Workout backup")}};
+      S=d;S.weights=S.weights||[];S.settings.unit="lb";save();toast("Backup restored");viewSettings(m)}catch(x){toast("That file is not a My Own Workout backup")}};
 }
 
 if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
